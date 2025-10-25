@@ -78,6 +78,26 @@ else()
     set (HAVE_Q_DISABLE_COPY_MOVE 1)
 endif()
 
+# Qt6 requires explicit wrapper functions
+if (FREECAD_QT_MAJOR_VERSION EQUAL 6)
+    find_package(Qt6LinguistTools REQUIRED)
+
+    function(qt_add_translation _qm_files)
+        qt6_add_translation("${_qm_files}" ${ARGN})
+        set("${_qm_files}" "${${_qm_files}}" PARENT_SCOPE)
+    endfunction()
+
+    function(qt_wrap_cpp outfiles)
+        qt6_wrap_cpp("${outfiles}" ${ARGN})
+        set("${outfiles}" "${${outfiles}}" PARENT_SCOPE)
+    endfunction()
+
+    function(qt_add_resources outfiles)
+        qt6_add_resources("${outfiles}" ${ARGN})
+        set("${outfiles}" "${${outfiles}}" PARENT_SCOPE)
+    endfunction()
+endif()
+
 configure_file(${CMAKE_SOURCE_DIR}/src/QtCore.h.cmake ${CMAKE_BINARY_DIR}/src/QtCore.h)
 configure_file(${CMAKE_SOURCE_DIR}/src/QtWidgets.h.cmake ${CMAKE_BINARY_DIR}/src/QtWidgets.h)
 
