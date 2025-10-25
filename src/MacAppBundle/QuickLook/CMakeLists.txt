@@ -7,15 +7,15 @@ enable_language(Swift)
 # Set deployment target for modern QuickLook features - support macOS 15+
 set(CMAKE_OSX_DEPLOYMENT_TARGET "15.0")
 
-# Swift compiler flags - Objective-C interop is enabled by default in modern Swift
-# Explicitly disable deprecated flags for Swift 6.2+
+# Swift compiler flags for consistency with Xcode defaults
 set(CMAKE_Swift_FLAGS "")
 set(CMAKE_Swift_FLAGS_DEBUG "-Onone -g")
-set(CMAKE_Swift_FLAGS_RELEASE "-O")
+set(CMAKE_Swift_FLAGS_RELEASE "-O -whole-module-optimization")
 
 # Define the QuickLook Thumbnail Extension target
-add_executable(FreeCADThumbnailExtension
+add_library(FreeCADThumbnailExtension MODULE
     ThumbnailProvider.swift
+    SwiftZIPParser.swift
 )
 
 # Disable Qt automoc for Swift targets
@@ -26,8 +26,9 @@ set_target_properties(FreeCADThumbnailExtension PROPERTIES
 )
 
 # Define the QuickLook Preview Extension target
-add_executable(FreeCADPreviewExtension
+add_library(FreeCADPreviewExtension MODULE
     PreviewProvider.swift
+    SwiftZIPParser.swift
 )
 
 # Disable Qt automoc for Swift targets
@@ -46,20 +47,27 @@ set_target_properties(FreeCADThumbnailExtension
     MACOSX_DEPLOYMENT_TARGET "15.0"
     MACOSX_BUNDLE TRUE
     MACOSX_BUNDLE_EXECUTABLE_NAME "FreeCADThumbnailExtension"
+    MACOSX_BUNDLE_BUNDLE_NAME "FreeCAD Thumbnail Extension"
+    MACOSX_BUNDLE_GUI_IDENTIFIER "org.freecad.quicklook.thumbnail"
     # Swift-specific properties
     Swift_MODULE_NAME "FreeCADThumbnailExtension"
     Swift_MODULE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/swift_modules"
     # App Extension specific settings
     XCODE_ATTRIBUTE_APPLICATION_EXTENSION_API_ONLY "YES"
     XCODE_ATTRIBUTE_SKIP_INSTALL "YES"
-    XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY ""
-    XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "NO"
+    XCODE_ATTRIBUTE_CODE_SIGN_STYLE "Automatic"
+    XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "Apple Development"
+    "XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY[sdk=macosx*]" "-"
+    XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "YES"
+    XCODE_ATTRIBUTE_DEVELOPMENT_TEAM ""
     XCODE_ATTRIBUTE_PRODUCT_TYPE "com.apple.product-type.app-extension"
-    XCODE_ATTRIBUTE_MACH_O_TYPE "mh_bundle"
+    XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "org.freecad.quicklook.thumbnail"
+    XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS "${CMAKE_CURRENT_SOURCE_DIR}/FreeCADThumbnailExtension.entitlements"
+    # Sandbox settings like FreeCADCompanion
+    XCODE_ATTRIBUTE_ENABLE_APP_SANDBOX "YES"
+    XCODE_ATTRIBUTE_ENABLE_USER_SELECTED_FILES "readonly"
     # Performance optimizations
     XCODE_ATTRIBUTE_SWIFT_OPTIMIZATION_LEVEL "-O"
-    # Disable deprecated Swift flags
-    XCODE_ATTRIBUTE_ENABLE_OBJC_INTEROP "NO"
 )
 
 # Link required frameworks for Swift QuickLook extension
@@ -70,7 +78,6 @@ target_link_libraries(FreeCADThumbnailExtension
     "-framework QuickLookThumbnailing"
     "-framework AppKit"
     "-lcompression"
-    "-framework OSLog"
 )
 
 # Set Swift language version
@@ -84,17 +91,24 @@ set_target_properties(FreeCADPreviewExtension PROPERTIES
     MACOSX_DEPLOYMENT_TARGET "15.0"
     MACOSX_BUNDLE TRUE
     MACOSX_BUNDLE_EXECUTABLE_NAME "FreeCADPreviewExtension"
+    MACOSX_BUNDLE_BUNDLE_NAME "FreeCAD Preview Extension"
+    MACOSX_BUNDLE_GUI_IDENTIFIER "org.freecad.quicklook.preview"
     # App Extension specific settings
     XCODE_ATTRIBUTE_APPLICATION_EXTENSION_API_ONLY "YES"
     XCODE_ATTRIBUTE_SKIP_INSTALL "YES"
-    XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY ""
-    XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "NO"
+    XCODE_ATTRIBUTE_CODE_SIGN_STYLE "Automatic"
+    XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "Apple Development"
+    "XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY[sdk=macosx*]" "-"
+    XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "YES"
+    XCODE_ATTRIBUTE_DEVELOPMENT_TEAM ""
     XCODE_ATTRIBUTE_PRODUCT_TYPE "com.apple.product-type.app-extension"
-    XCODE_ATTRIBUTE_MACH_O_TYPE "mh_bundle"
+    XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "org.freecad.quicklook.preview"
+    XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS "${CMAKE_CURRENT_SOURCE_DIR}/FreeCADPreviewExtension.entitlements"
+    # Sandbox settings like FreeCADCompanion
+    XCODE_ATTRIBUTE_ENABLE_APP_SANDBOX "YES"
+    XCODE_ATTRIBUTE_ENABLE_USER_SELECTED_FILES "readonly"
     # Performance optimizations
     XCODE_ATTRIBUTE_SWIFT_OPTIMIZATION_LEVEL "-O"
-    # Disable deprecated Swift flags
-    XCODE_ATTRIBUTE_ENABLE_OBJC_INTEROP "NO"
     Swift_MODULE_NAME "FreeCADPreviewExtension"
     Swift_MODULE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/swift_modules_preview"
 )
@@ -104,10 +118,10 @@ target_link_libraries(FreeCADPreviewExtension
     "-framework Foundation"
     "-framework CoreGraphics"
     "-framework ImageIO"
-    "-framework QuickLookUI"
-    "-framework AppKit"
+    "-framework Quartz"
+    "-framework Cocoa"
+    "-framework UniformTypeIdentifiers"
     "-lcompression"
-    "-framework OSLog"
 )
 
 # Set Swift language version for Preview Extension
@@ -134,10 +148,10 @@ set_target_properties(FreeCADQuickLookHost
     MACOSX_BUNDLE_EXECUTABLE_NAME "FreeCADQuickLookHost"
     Swift_MODULE_NAME "FreeCADQuickLookHost"
     Swift_MODULE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/swift_modules_host"
-    # Fix bundle identifier mismatch
+    # Bundle identifier
     XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "org.freecad.quicklook.host"
-    # Disable deprecated Swift flags
-    XCODE_ATTRIBUTE_ENABLE_OBJC_INTEROP "NO"
+    XCODE_ATTRIBUTE_CODE_SIGN_STYLE "Automatic"
+    "XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY[sdk=macosx*]" "-"
 )
 
 target_link_libraries(FreeCADQuickLookHost

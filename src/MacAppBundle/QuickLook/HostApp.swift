@@ -28,13 +28,8 @@ struct FreeCADQuickLookHost {
 
         logger.info("FreeCAD QuickLook Host ready - extensions available")
 
-        // Terminate immediately after registration since this is a background service
-        // The extensions will remain active in the system
-        DispatchQueue.main.async {
-            NSApp.terminate(nil)
-        }
-
-        // Run briefly to complete registration
+        // Keep running as background service to maintain extension registration
+        // Extensions need their host app to remain available
         app.run()
     }
 
@@ -66,13 +61,13 @@ class HostAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        // Always allow termination for embedded host
+        // Allow termination when explicitly requested
         return .terminateNow
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        // Terminate when no windows (background-only service)
-        return true
+        // Don't terminate when no windows - stay running as background service
+        return false
     }
 
     /// Setup environment for QuickLook extensions
