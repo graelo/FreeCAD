@@ -4,9 +4,6 @@ project(FreeCADQuickLookSwift)
 # Enable Swift language support
 enable_language(Swift)
 
-# Set deployment target for modern QuickLook features - support macOS 15+
-set(CMAKE_OSX_DEPLOYMENT_TARGET "15.0")
-
 # Swift compiler flags for consistency with Xcode defaults
 set(CMAKE_Swift_FLAGS "")
 set(CMAKE_Swift_FLAGS_DEBUG "-Onone -g")
@@ -43,12 +40,12 @@ set_target_properties(FreeCADThumbnailExtension
     PROPERTIES
     BUNDLE TRUE
     BUNDLE_EXTENSION "appex"
-    MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist"
+    MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ThumbnailExtensionInfo.plist"
     MACOSX_DEPLOYMENT_TARGET "15.0"
     MACOSX_BUNDLE TRUE
     MACOSX_BUNDLE_EXECUTABLE_NAME "FreeCADThumbnailExtension"
     MACOSX_BUNDLE_BUNDLE_NAME "FreeCAD Thumbnail Extension"
-    MACOSX_BUNDLE_GUI_IDENTIFIER "org.freecad.quicklook.thumbnail"
+    MACOSX_BUNDLE_GUI_IDENTIFIER "org.freecad.FreeCAD.quicklook.thumbnail"
     # Swift-specific properties
     Swift_MODULE_NAME "FreeCADThumbnailExtension"
     Swift_MODULE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/swift_modules"
@@ -61,8 +58,8 @@ set_target_properties(FreeCADThumbnailExtension
     XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "YES"
     XCODE_ATTRIBUTE_DEVELOPMENT_TEAM ""
     XCODE_ATTRIBUTE_PRODUCT_TYPE "com.apple.product-type.app-extension"
-    XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "org.freecad.quicklook.thumbnail"
-    XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS "${CMAKE_CURRENT_SOURCE_DIR}/FreeCADThumbnailExtension.entitlements"
+    XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "org.freecad.FreeCAD.quicklook.thumbnail"
+    XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS "${CMAKE_CURRENT_SOURCE_DIR}/ThumbnailExtension.entitlements"
     # Sandbox settings like FreeCADCompanion
     XCODE_ATTRIBUTE_ENABLE_APP_SANDBOX "YES"
     XCODE_ATTRIBUTE_ENABLE_USER_SELECTED_FILES "readonly"
@@ -87,12 +84,12 @@ set_property(TARGET FreeCADThumbnailExtension PROPERTY Swift_LANGUAGE_VERSION 5.
 set_target_properties(FreeCADPreviewExtension PROPERTIES
     BUNDLE TRUE
     BUNDLE_EXTENSION "appex"
-    MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/PreviewInfo.plist"
+    MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/PreviewExtensionInfo.plist"
     MACOSX_DEPLOYMENT_TARGET "15.0"
     MACOSX_BUNDLE TRUE
     MACOSX_BUNDLE_EXECUTABLE_NAME "FreeCADPreviewExtension"
     MACOSX_BUNDLE_BUNDLE_NAME "FreeCAD Preview Extension"
-    MACOSX_BUNDLE_GUI_IDENTIFIER "org.freecad.quicklook.preview"
+    MACOSX_BUNDLE_GUI_IDENTIFIER "org.freecad.FreeCAD.quicklook.preview"
     # App Extension specific settings
     XCODE_ATTRIBUTE_APPLICATION_EXTENSION_API_ONLY "YES"
     XCODE_ATTRIBUTE_SKIP_INSTALL "YES"
@@ -102,8 +99,8 @@ set_target_properties(FreeCADPreviewExtension PROPERTIES
     XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "YES"
     XCODE_ATTRIBUTE_DEVELOPMENT_TEAM ""
     XCODE_ATTRIBUTE_PRODUCT_TYPE "com.apple.product-type.app-extension"
-    XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "org.freecad.quicklook.preview"
-    XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS "${CMAKE_CURRENT_SOURCE_DIR}/FreeCADPreviewExtension.entitlements"
+    XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "org.freecad.FreeCAD.quicklook.preview"
+    XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS "${CMAKE_CURRENT_SOURCE_DIR}/PreviewExtension.entitlements"
     # Sandbox settings like FreeCADCompanion
     XCODE_ATTRIBUTE_ENABLE_APP_SANDBOX "YES"
     XCODE_ATTRIBUTE_ENABLE_USER_SELECTED_FILES "readonly"
@@ -149,7 +146,7 @@ set_target_properties(FreeCADQuickLookHost
     Swift_MODULE_NAME "FreeCADQuickLookHost"
     Swift_MODULE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/swift_modules_host"
     # Bundle identifier
-    XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "org.freecad.quicklook.host"
+    XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "org.freecad.FreeCAD.quicklook.host"
     XCODE_ATTRIBUTE_CODE_SIGN_STYLE "Automatic"
     "XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY[sdk=macosx*]" "-"
 )
@@ -277,7 +274,7 @@ message(STATUS "  Swift Flags: ${CMAKE_Swift_FLAGS}")
 message(STATUS "  Extensions: Thumbnail + Preview (.appex)")
 message(STATUS "  Pure Swift: No external dependencies")
 message(STATUS "  Install Path: \${CMAKE_INSTALL_PREFIX}/Contents/Library/QuickLook/")
-message(STATUS "  Bundle ID: org.freecad.quicklook.host")
+message(STATUS "  Bundle ID: org.freecad.FreeCAD.quicklook.host")
 
 # Verify Swift compiler is available
 if(NOT CMAKE_Swift_COMPILER)
