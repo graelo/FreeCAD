@@ -8,6 +8,7 @@ enable_language(Swift)
 set(CMAKE_Swift_FLAGS "")
 set(CMAKE_Swift_FLAGS_DEBUG "-Onone -g")
 set(CMAKE_Swift_FLAGS_RELEASE "-O -whole-module-optimization")
+set(CMAKE_Swift_COMPILER_VERSION 5.0)
 
 # Function to set common properties for both extensions
 function(set_extension_properties target_name bundle_identifier)
@@ -22,6 +23,7 @@ function(set_extension_properties target_name bundle_identifier)
         # App Extension specific settings
         XCODE_ATTRIBUTE_APPLICATION_EXTENSION_API_ONLY "YES"
         XCODE_ATTRIBUTE_SKIP_INSTALL "YES"
+        XCODE_ATTRIBUTE_GENERATE_INFOPLIST_FILE "YES"
         XCODE_ATTRIBUTE_CODE_SIGN_STYLE "Automatic"
         XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "Apple Development"
         "XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY[sdk=macosx*]" "-"
@@ -40,7 +42,7 @@ endfunction()
 # Define the QuickLook Thumbnail Extension target
 add_library(FreeCADThumbnailExtension MODULE
     ThumbnailProvider.swift
-    SwiftZIPParser.swift
+    ZipExtractor.swift
 )
 
 # Disable Qt automoc for Swift targets
@@ -56,6 +58,8 @@ set_extension_properties(FreeCADThumbnailExtension "org.freecad.FreeCAD.quickloo
 # Set specific properties for Thumbnail Extension
 set_target_properties(FreeCADThumbnailExtension PROPERTIES
     MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ThumbnailExtensionInfo.plist"
+    XCODE_ATTRIBUTE_INFOPLIST_FILE "${CMAKE_CURRENT_SOURCE_DIR}/ThumbnailExtensionInfo.plist"
+    CODE_SIGN_ENTITLEMENTS "${CMAKE_CURRENT_SOURCE_DIR}/ThumbnailExtension.entitlements"
     XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS "${CMAKE_CURRENT_SOURCE_DIR}/ThumbnailExtension.entitlements"
     Swift_MODULE_NAME "FreeCADThumbnailExtension"
     Swift_MODULE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/swift_modules"
@@ -77,7 +81,7 @@ set_property(TARGET FreeCADThumbnailExtension PROPERTY Swift_LANGUAGE_VERSION 5.
 # Define the QuickLook Preview Extension target
 add_library(FreeCADPreviewExtension MODULE
     PreviewProvider.swift
-    SwiftZIPParser.swift
+    ZipExtractor.swift
 )
 
 # Disable Qt automoc for Swift targets
@@ -93,6 +97,8 @@ set_extension_properties(FreeCADPreviewExtension "org.freecad.FreeCAD.quicklook.
 # Set specific properties for Preview Extension
 set_target_properties(FreeCADPreviewExtension PROPERTIES
     MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/PreviewExtensionInfo.plist"
+    XCODE_ATTRIBUTE_INFOPLIST_FILE "${CMAKE_CURRENT_SOURCE_DIR}/PreviewExtensionInfo.plist"
+    CODE_SIGN_ENTITLEMENTS "${CMAKE_CURRENT_SOURCE_DIR}/PreviewExtension.entitlements"
     XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS "${CMAKE_CURRENT_SOURCE_DIR}/PreviewExtension.entitlements"
     Swift_MODULE_NAME "FreeCADPreviewExtension"
     Swift_MODULE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/swift_modules_preview"
@@ -114,7 +120,7 @@ set_property(TARGET FreeCADPreviewExtension PROPERTY Swift_LANGUAGE_VERSION 5.0)
 
 # Host app target (minimal container for FreeCAD integration)
 add_executable(FreeCADQuickLookHost
-    HostApp.swift
+    FreeCADQuickLookHostApp.swift
 )
 
 # Disable Qt automoc for Swift targets
@@ -127,7 +133,7 @@ set_target_properties(FreeCADQuickLookHost PROPERTIES
 set_target_properties(FreeCADQuickLookHost
     PROPERTIES
     BUNDLE TRUE
-    MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/FreeCADHostInfo.plist"
+    MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/FreeCADQuickLookHostInfo.plist"
     MACOSX_DEPLOYMENT_TARGET "15.0"
     MACOSX_BUNDLE TRUE
     MACOSX_BUNDLE_EXECUTABLE_NAME "FreeCADQuickLookHost"
@@ -161,96 +167,38 @@ add_custom_command(TARGET FreeCADQuickLookHost POST_BUILD
 # Ensure the extensions are built before the host app
 add_dependencies(FreeCADQuickLookHost FreeCADThumbnailExtension FreeCADPreviewExtension)
 
-# FreeCAD integration installation rules (Option 1: Embed in FreeCAD.app)
-if(FREECAD_CREATE_MAC_APP OR (APPLE AND BUILD_WITH_CONDA))
-    # Install QuickLook host app directly into FreeCAD.app bundle
-    install(TARGETS FreeCADQuickLookHost
-        BUNDLE DESTINATION "${CMAKE_INSTALL_PREFIX}/Contents/Library/QuickLook"
-        COMPONENT QuickLook
+# Install QuickLook host app directly into FreeCAD.app bundle
+install(TARGETS FreeCADQuickLookHost
+    BUNDLE DESTINATION "${CMAKE_INSTALL_PREFIX}/Contents/Library/QuickLook"
+    COMPONENT QuickLook
+)
+
+# Install a registration script for post-install QuickLook registration
+install(CODE "
+    # Register QuickLook extensions with the system
+    set(QUICKLOOK_HOST_PATH \"${CMAKE_INSTALL_PREFIX}/Contents/Library/QuickLook/FreeCADQuickLookHost.app\")
+
+    # Create a registration script that FreeCAD can call on first launch
+    file(WRITE \"${CMAKE_INSTALL_PREFIX}/Contents/Resources/register_quicklook.sh\"
+        \"#!/bin/bash\\n\"
+        \"# FreeCAD QuickLook Registration Script\\n\"
+        \"QUICKLOOK_HOST=\\\"${CMAKE_INSTALL_PREFIX}/Contents/Library/QuickLook/FreeCADQuickLookHost.app\\\"\\n\"
+        \"if [ -d \\\"\\$QUICKLOOK_HOST\\\" ]; then\\n\"
+        \"    echo \\\"Registering FreeCAD QuickLook extensions...\\\"\\n\"
+        \"    pluginkit -a \\\"\\$QUICKLOOK_HOST\\\" 2>/dev/null || true\\n\"
+        \"    qlmanage -r 2>/dev/null || true\\n\"
+        \"    echo \\\"FreeCAD QuickLook extensions registered.\\\"\\n\"
+        \"else\\n\"
+        \"    echo \\\"QuickLook host app not found at \\$QUICKLOOK_HOST\\\"\\n\"
+        \"fi\\n\"
     )
 
-    # Install a registration script for post-install QuickLook registration
-    install(CODE "
-        # Register QuickLook extensions with the system
-        set(QUICKLOOK_HOST_PATH \"${CMAKE_INSTALL_PREFIX}/Contents/Library/QuickLook/FreeCADQuickLookHost.app\")
+    # Make the script executable
+    execute_process(COMMAND chmod +x \"${CMAKE_INSTALL_PREFIX}/Contents/Resources/register_quicklook.sh\")
 
-        # Create a registration script that FreeCAD can call on first launch
-        file(WRITE \"${CMAKE_INSTALL_PREFIX}/Contents/Resources/register_quicklook.sh\"
-            \"#!/bin/bash\\n\"
-            \"# FreeCAD QuickLook Registration Script\\n\"
-            \"QUICKLOOK_HOST=\\\"${CMAKE_INSTALL_PREFIX}/Contents/Library/QuickLook/FreeCADQuickLookHost.app\\\"\\n\"
-            \"if [ -d \\\"\\$QUICKLOOK_HOST\\\" ]; then\\n\"
-            \"    echo \\\"Registering FreeCAD QuickLook extensions...\\\"\\n\"
-            \"    pluginkit -a \\\"\\$QUICKLOOK_HOST\\\" 2>/dev/null || true\\n\"
-            \"    qlmanage -r 2>/dev/null || true\\n\"
-            \"    echo \\\"FreeCAD QuickLook extensions registered.\\\"\\n\"
-            \"else\\n\"
-            \"    echo \\\"QuickLook host app not found at \\$QUICKLOOK_HOST\\\"\\n\"
-            \"fi\\n\"
-        )
-
-        # Make the script executable
-        execute_process(COMMAND chmod +x \"${CMAKE_INSTALL_PREFIX}/Contents/Resources/register_quicklook.sh\")
-
-        message(STATUS \"FreeCAD QuickLook extensions installed to: \\${CMAKE_INSTALL_PREFIX}/Contents/Library/QuickLook/FreeCADQuickLookHost.app\")
-        message(STATUS \"Registration script created at: \\${CMAKE_INSTALL_PREFIX}/Contents/Resources/register_quicklook.sh\")
-    " COMPONENT QuickLook)
-else()
-    # Standalone installation for development/testing
-    install(TARGETS FreeCADQuickLookHost
-        BUNDLE DESTINATION "/Applications"
-        COMPONENT QuickLook
-    )
-
-    # For development: immediate registration
-    install(CODE "
-        execute_process(
-            COMMAND pluginkit -a \"/Applications/FreeCADQuickLookHost.app\"
-            ERROR_QUIET
-        )
-        execute_process(
-            COMMAND qlmanage -r
-            ERROR_QUIET
-        )
-        message(STATUS \"Development QuickLook extensions registered\")
-    " COMPONENT QuickLook)
-endif()
-
-# Development and testing targets
-add_custom_target(install_quicklook_dev
-    COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target install --config $<CONFIG>
-    COMMAND pluginkit -a "/Applications/FreeCADQuickLookHost.app" || true
-    COMMAND qlmanage -r
-    COMMENT "Installing Swift QuickLook extensions for development and reloading QuickLook"
-    DEPENDS FreeCADQuickLookHost
-)
-
-add_custom_target(uninstall_quicklook_dev
-    COMMAND pluginkit -r "/Applications/FreeCADQuickLookHost.app" || true
-    COMMAND rm -rf "/Applications/FreeCADQuickLookHost.app"
-    COMMAND qlmanage -r
-    COMMENT "Uninstalling Swift QuickLook extensions and reloading QuickLook"
-)
-
-# FreeCAD-specific targets
-add_custom_target(install_quicklook_freecad
-    COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target install --config $<CONFIG>
-    COMMENT "Installing Swift QuickLook extensions into FreeCAD.app bundle"
-    DEPENDS FreeCADQuickLookHost
-)
-
-add_custom_target(register_quicklook_freecad
-    COMMAND pluginkit -a "${CMAKE_INSTALL_PREFIX}/Contents/Library/QuickLook/FreeCADQuickLookHost.app" || true
-    COMMAND qlmanage -r
-    COMMENT "Registering FreeCAD QuickLook extensions with the system"
-)
-
-# Test target for validating the Swift implementation
-add_custom_target(test_swift_zip_parser
-    COMMAND swift "${CMAKE_CURRENT_SOURCE_DIR}/ValidateFixedParser.swift" "${CMAKE_CURRENT_SOURCE_DIR}/../base.FCStd"
-    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-    COMMENT "Testing Swift ZIP parser implementation"
-)
+    message(STATUS \"FreeCAD QuickLook extensions installed to: \\${CMAKE_INSTALL_PREFIX}/Contents/Library/QuickLook/FreeCADQuickLookHost.app\")
+    message(STATUS \"Registration script created at: \\${CMAKE_INSTALL_PREFIX}/Contents/Resources/register_quicklook.sh\")
+" COMPONENT QuickLook)
 
 # Print build information
 message(STATUS "FreeCAD Swift QuickLook Configuration:")

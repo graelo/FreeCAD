@@ -4,11 +4,11 @@
 <dict>
     <!-- Basic Bundle Information -->
     <key>CFBundleExecutable</key>
-    <string>FreeCADQuickLookHost</string>
+    <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
-    <string>org.freecad.quicklook.host</string>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
     <key>CFBundleName</key>
-    <string>FreeCAD QuickLook</string>
+    <string>$(PRODUCT_NAME)</string>
     <key>CFBundleDisplayName</key>
     <string>FreeCAD QuickLook</string>
     <key>CFBundleVersion</key>

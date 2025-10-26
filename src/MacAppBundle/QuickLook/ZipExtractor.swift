@@ -1,5 +1,5 @@
 //
-//  SwiftZIPParser.swift
+//  ZipExtractor.swift
 //  FreeCAD QuickLook Swift Implementation
 //
 //  Pure Swift ZIP parser for extracting thumbnails from FreeCAD (.FCStd) files
