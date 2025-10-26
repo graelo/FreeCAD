@@ -9,6 +9,34 @@ set(CMAKE_Swift_FLAGS "")
 set(CMAKE_Swift_FLAGS_DEBUG "-Onone -g")
 set(CMAKE_Swift_FLAGS_RELEASE "-O -whole-module-optimization")
 
+# Function to set common properties for both extensions
+function(set_extension_properties target_name bundle_identifier)
+    set_target_properties(${target_name} PROPERTIES
+        BUNDLE TRUE
+        BUNDLE_EXTENSION "appex"
+        MACOSX_DEPLOYMENT_TARGET "15.0"
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_EXECUTABLE_NAME ${target_name}
+        MACOSX_BUNDLE_BUNDLE_NAME "FreeCAD ${target_name} Extension"
+        MACOSX_BUNDLE_GUI_IDENTIFIER ${bundle_identifier}
+        # App Extension specific settings
+        XCODE_ATTRIBUTE_APPLICATION_EXTENSION_API_ONLY "YES"
+        XCODE_ATTRIBUTE_SKIP_INSTALL "YES"
+        XCODE_ATTRIBUTE_CODE_SIGN_STYLE "Automatic"
+        XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "Apple Development"
+        "XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY[sdk=macosx*]" "-"
+        XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "YES"
+        XCODE_ATTRIBUTE_DEVELOPMENT_TEAM ""
+        XCODE_ATTRIBUTE_PRODUCT_TYPE "com.apple.product-type.app-extension"
+        XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER ${bundle_identifier}
+        # Sandbox settings like FreeCADCompanion
+        XCODE_ATTRIBUTE_ENABLE_APP_SANDBOX "YES"
+        XCODE_ATTRIBUTE_ENABLE_USER_SELECTED_FILES "readonly"
+        # Performance optimizations
+        XCODE_ATTRIBUTE_SWIFT_OPTIMIZATION_LEVEL "-O"
+    )
+endfunction()
+
 # Define the QuickLook Thumbnail Extension target
 add_library(FreeCADThumbnailExtension MODULE
     ThumbnailProvider.swift
@@ -22,49 +50,15 @@ set_target_properties(FreeCADThumbnailExtension PROPERTIES
     AUTORCC OFF
 )
 
-# Define the QuickLook Preview Extension target
-add_library(FreeCADPreviewExtension MODULE
-    PreviewProvider.swift
-    SwiftZIPParser.swift
-)
+# Set common properties for Thumbnail Extension
+set_extension_properties(FreeCADThumbnailExtension "org.freecad.FreeCAD.quicklook.thumbnail")
 
-# Disable Qt automoc for Swift targets
-set_target_properties(FreeCADPreviewExtension PROPERTIES
-    AUTOMOC OFF
-    AUTOUIC OFF
-    AUTORCC OFF
-)
-
-# Set App Extension properties
-set_target_properties(FreeCADThumbnailExtension
-    PROPERTIES
-    BUNDLE TRUE
-    BUNDLE_EXTENSION "appex"
+# Set specific properties for Thumbnail Extension
+set_target_properties(FreeCADThumbnailExtension PROPERTIES
     MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ThumbnailExtensionInfo.plist"
-    MACOSX_DEPLOYMENT_TARGET "15.0"
-    MACOSX_BUNDLE TRUE
-    MACOSX_BUNDLE_EXECUTABLE_NAME "FreeCADThumbnailExtension"
-    MACOSX_BUNDLE_BUNDLE_NAME "FreeCAD Thumbnail Extension"
-    MACOSX_BUNDLE_GUI_IDENTIFIER "org.freecad.FreeCAD.quicklook.thumbnail"
-    # Swift-specific properties
+    XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS "${CMAKE_CURRENT_SOURCE_DIR}/ThumbnailExtension.entitlements"
     Swift_MODULE_NAME "FreeCADThumbnailExtension"
     Swift_MODULE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/swift_modules"
-    # App Extension specific settings
-    XCODE_ATTRIBUTE_APPLICATION_EXTENSION_API_ONLY "YES"
-    XCODE_ATTRIBUTE_SKIP_INSTALL "YES"
-    XCODE_ATTRIBUTE_CODE_SIGN_STYLE "Automatic"
-    XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "Apple Development"
-    "XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY[sdk=macosx*]" "-"
-    XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "YES"
-    XCODE_ATTRIBUTE_DEVELOPMENT_TEAM ""
-    XCODE_ATTRIBUTE_PRODUCT_TYPE "com.apple.product-type.app-extension"
-    XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "org.freecad.FreeCAD.quicklook.thumbnail"
-    XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS "${CMAKE_CURRENT_SOURCE_DIR}/ThumbnailExtension.entitlements"
-    # Sandbox settings like FreeCADCompanion
-    XCODE_ATTRIBUTE_ENABLE_APP_SANDBOX "YES"
-    XCODE_ATTRIBUTE_ENABLE_USER_SELECTED_FILES "readonly"
-    # Performance optimizations
-    XCODE_ATTRIBUTE_SWIFT_OPTIMIZATION_LEVEL "-O"
 )
 
 # Link required frameworks for Swift QuickLook extension
@@ -80,32 +74,26 @@ target_link_libraries(FreeCADThumbnailExtension
 # Set Swift language version
 set_property(TARGET FreeCADThumbnailExtension PROPERTY Swift_LANGUAGE_VERSION 5.0)
 
-# Set App Extension properties for Preview Extension
+# Define the QuickLook Preview Extension target
+add_library(FreeCADPreviewExtension MODULE
+    PreviewProvider.swift
+    SwiftZIPParser.swift
+)
+
+# Disable Qt automoc for Swift targets
 set_target_properties(FreeCADPreviewExtension PROPERTIES
-    BUNDLE TRUE
-    BUNDLE_EXTENSION "appex"
+    AUTOMOC OFF
+    AUTOUIC OFF
+    AUTORCC OFF
+)
+
+# Set common properties for Preview Extension
+set_extension_properties(FreeCADPreviewExtension "org.freecad.FreeCAD.quicklook.preview")
+
+# Set specific properties for Preview Extension
+set_target_properties(FreeCADPreviewExtension PROPERTIES
     MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/PreviewExtensionInfo.plist"
-    MACOSX_DEPLOYMENT_TARGET "15.0"
-    MACOSX_BUNDLE TRUE
-    MACOSX_BUNDLE_EXECUTABLE_NAME "FreeCADPreviewExtension"
-    MACOSX_BUNDLE_BUNDLE_NAME "FreeCAD Preview Extension"
-    MACOSX_BUNDLE_GUI_IDENTIFIER "org.freecad.FreeCAD.quicklook.preview"
-    # App Extension specific settings
-    XCODE_ATTRIBUTE_APPLICATION_EXTENSION_API_ONLY "YES"
-    XCODE_ATTRIBUTE_SKIP_INSTALL "YES"
-    XCODE_ATTRIBUTE_CODE_SIGN_STYLE "Automatic"
-    XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "Apple Development"
-    "XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY[sdk=macosx*]" "-"
-    XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "YES"
-    XCODE_ATTRIBUTE_DEVELOPMENT_TEAM ""
-    XCODE_ATTRIBUTE_PRODUCT_TYPE "com.apple.product-type.app-extension"
-    XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "org.freecad.FreeCAD.quicklook.preview"
     XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS "${CMAKE_CURRENT_SOURCE_DIR}/PreviewExtension.entitlements"
-    # Sandbox settings like FreeCADCompanion
-    XCODE_ATTRIBUTE_ENABLE_APP_SANDBOX "YES"
-    XCODE_ATTRIBUTE_ENABLE_USER_SELECTED_FILES "readonly"
-    # Performance optimizations
-    XCODE_ATTRIBUTE_SWIFT_OPTIMIZATION_LEVEL "-O"
     Swift_MODULE_NAME "FreeCADPreviewExtension"
     Swift_MODULE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/swift_modules_preview"
 )
