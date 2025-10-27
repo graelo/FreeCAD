@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# FreeCAD QuickLook Extensions Identity-Aware Code Signing Script
+# This script detects available Apple Developer identities and signs accordingly
+
+set -e
+
+BUNDLE_PATH="$1"
+ENTITLEMENTS_FILE="$2"
+CODESIGN_EXECUTABLE="$3"
+
+if [ -z "$BUNDLE_PATH" ] || [ -z "$CODESIGN_EXECUTABLE" ]; then
+    echo "Usage: $0 <bundle_path> [entitlements_file] <codesign_executable>"
+    exit 1
+fi
+
+# Check if Apple Development identity is available
+if security find-identity -v -p codesigning | grep -q "Apple Development"; then
+    # Extract the first available Apple Development identity
+    IDENTITY=$(security find-identity -v -p codesigning | grep "Apple Development" | head -1 | sed 's/.*"\(.*\)"/\1/')
+    echo "Found Apple Development identity: $IDENTITY"
+
+    if [ -n "$ENTITLEMENTS_FILE" ] && [ -f "$ENTITLEMENTS_FILE" ]; then
+        echo "Signing $BUNDLE_PATH with entitlements using identity: $IDENTITY"
+        "$CODESIGN_EXECUTABLE" --force --sign "$IDENTITY" --entitlements "$ENTITLEMENTS_FILE" --deep "$BUNDLE_PATH"
+    else
+        echo "Signing $BUNDLE_PATH without entitlements using identity: $IDENTITY"
+        "$CODESIGN_EXECUTABLE" --force --sign "$IDENTITY" --deep "$BUNDLE_PATH"
+    fi
+else
+    echo "No Apple Development identity found, using ad-hoc signing"
+    if [ -n "$ENTITLEMENTS_FILE" ] && [ -f "$ENTITLEMENTS_FILE" ]; then
+        echo "Warning: Entitlements may not work with ad-hoc signing for app extensions"
+    fi
+    "$CODESIGN_EXECUTABLE" --force --sign "-" --deep "$BUNDLE_PATH"
+fi
+
+echo "Code signing completed for $BUNDLE_PATH"
