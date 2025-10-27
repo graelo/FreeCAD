@@ -148,7 +148,13 @@ if(HOMEBREW_PREFIX)
   endforeach(PTH_FILE)
 endif()
 
-set(QT_PLUGINS_DIR "${Qt5Core_DIR}/../../../plugins")
+if(FREECAD_QT_MAJOR_VERSION STREQUAL "6")
+    set(QT_PLUGINS_DIR "${Qt6Core_DIR}/../../../plugins")
+    set(QT_ASSISTANT_PATH "${Qt6Core_DIR}/../../../libexec/Assistant.app/Contents/MacOS/Assistant")
+else()
+    set(QT_PLUGINS_DIR "${Qt5Core_DIR}/../../../plugins")
+    set(QT_ASSISTANT_PATH "${Qt5Core_DIR}/../../../libexec/Assistant.app/Contents/MacOS/Assistant")
+endif()
 execute_process(COMMAND "xcode-select" "--print-path"
   OUTPUT_VARIABLE XCODE_PATH
   ERROR_QUIET
@@ -158,7 +164,11 @@ string(STRIP ${XCODE_PATH} XCODE_PATH)
 set(XCTEST_PATH "${XCODE_PATH}/Platforms/MacOSX.platform/Developer/Library/Frameworks/XCTest.framework/Versions/Current")
 
 # add qt assistant to bundle
-install(PROGRAMS "${Qt5Core_DIR}/../../../libexec/Assistant.app/Contents/MacOS/Assistant" DESTINATION ${CMAKE_INSTALL_PREFIX}/MacOS)
+if(EXISTS "${QT_ASSISTANT_PATH}")
+    install(PROGRAMS "${QT_ASSISTANT_PATH}" DESTINATION ${CMAKE_INSTALL_PREFIX}/MacOS)
+else()
+    message(WARNING "Qt Assistant not found at ${QT_ASSISTANT_PATH}, skipping installation")
+endif()
 
 # Ensure the actual plugin files are installed instead of symlinks.
 file(GLOB _subdirs RELATIVE "${QT_PLUGINS_DIR}" "${QT_PLUGINS_DIR}/*")
