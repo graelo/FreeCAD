@@ -43,9 +43,32 @@ for exe in ${signed_files}; do
     run_codesign "${exe}"
 done
 
-# Two additional files that must be signed that aren't caught by the above searches:
+# Additional files that must be signed that aren't caught by the above searches:
 run_codesign "${CONTAINING_FOLDER}/FreeCAD.app/Contents/packages.txt"
-run_codesign "${CONTAINING_FOLDER}/FreeCAD.app/Contents/Library/QuickLook/QuicklookFCStd.qlgenerator/Contents/MacOS/QuicklookFCStd"
+
+# Sign legacy QuickLook generator (for backward compatibility with older macOS)
+if [ -f "${CONTAINING_FOLDER}/FreeCAD.app/Contents/Library/QuickLook/QuicklookFCStd.qlgenerator/Contents/MacOS/QuicklookFCStd" ]; then
+    run_codesign "${CONTAINING_FOLDER}/FreeCAD.app/Contents/Library/QuickLook/QuicklookFCStd.qlgenerator/Contents/MacOS/QuicklookFCStd"
+fi
+
+# Sign new Swift QuickLook extensions (macOS 15.0+)
+if [ -d "${CONTAINING_FOLDER}/FreeCAD.app/Contents/PlugIns" ]; then
+    # Sign individual executables within .appex bundles first
+    if [ -f "${CONTAINING_FOLDER}/FreeCAD.app/Contents/PlugIns/FreeCADThumbnailExtension.appex/Contents/MacOS/FreeCADThumbnailExtension" ]; then
+        run_codesign "${CONTAINING_FOLDER}/FreeCAD.app/Contents/PlugIns/FreeCADThumbnailExtension.appex/Contents/MacOS/FreeCADThumbnailExtension"
+    fi
+    if [ -f "${CONTAINING_FOLDER}/FreeCAD.app/Contents/PlugIns/FreeCADPreviewExtension.appex/Contents/MacOS/FreeCADPreviewExtension" ]; then
+        run_codesign "${CONTAINING_FOLDER}/FreeCAD.app/Contents/PlugIns/FreeCADPreviewExtension.appex/Contents/MacOS/FreeCADPreviewExtension"
+    fi
+
+    # Then sign the .appex bundles themselves
+    if [ -d "${CONTAINING_FOLDER}/FreeCAD.app/Contents/PlugIns/FreeCADThumbnailExtension.appex" ]; then
+        run_codesign "${CONTAINING_FOLDER}/FreeCAD.app/Contents/PlugIns/FreeCADThumbnailExtension.appex"
+    fi
+    if [ -d "${CONTAINING_FOLDER}/FreeCAD.app/Contents/PlugIns/FreeCADPreviewExtension.appex" ]; then
+        run_codesign "${CONTAINING_FOLDER}/FreeCAD.app/Contents/PlugIns/FreeCADPreviewExtension.appex"
+    fi
+fi
 
 # Finally, sign the app itself (must be done last)
 run_codesign "${CONTAINING_FOLDER}/FreeCAD.app"

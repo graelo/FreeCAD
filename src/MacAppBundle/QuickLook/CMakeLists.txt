@@ -28,8 +28,11 @@ endif()
 message(STATUS "Using macOS SDK: ${MACOS_SDK_PATH}")
 
 # macOS version requirements
-set(MACOS_DEPLOYMENT_TARGET "15.0")
-set(CMAKE_OSX_DEPLOYMENT_TARGET ${MACOS_DEPLOYMENT_TARGET})
+if(NOT CMAKE_OSX_DEPLOYMENT_TARGET)
+    message(FATAL_ERROR "CMAKE_OSX_DEPLOYMENT_TARGET must be set for QuickLook extensions. "
+                        "Please specify it in your cmake command, e.g.: "
+                        "-DCMAKE_OSX_DEPLOYMENT_TARGET=15.0")
+endif()
 
 # Bundle identifiers - use FreeCAD's main bundle ID hierarchy
 set(FREECAD_BUNDLE_ID "org.freecad.FreeCAD")
@@ -54,7 +57,7 @@ endif()
 
 # Swift compilation flags
 set(SWIFT_FLAGS
-    -target ${TARGET_ARCH}-apple-macosx${MACOS_DEPLOYMENT_TARGET}
+    -target ${TARGET_ARCH}-apple-macosx${CMAKE_OSX_DEPLOYMENT_TARGET}
     -sdk ${MACOS_SDK_PATH}
     -O
     -whole-module-optimization
