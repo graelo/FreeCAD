@@ -201,28 +201,7 @@ add_custom_target(compile_preview_extension ALL
 )
 
 # Sign Thumbnail Extension
-add_custom_target(sign_thumbnail_extension ALL
-    COMMAND ${CODESIGN_EXECUTABLE}
-        --force
-        --sign "${SIGNING_IDENTITY}"
-        --entitlements ${CMAKE_CURRENT_SOURCE_DIR}/ThumbnailExtension.entitlements
-        ${THUMBNAIL_EXT_DIR}
-    DEPENDS compile_thumbnail_extension
-    COMMENT "Code signing thumbnail extension"
-)
-
-# Sign Preview Extension
-add_custom_target(sign_preview_extension ALL
-    COMMAND ${CODESIGN_EXECUTABLE}
-        --force
-        --sign "${SIGNING_IDENTITY}"
-        --entitlements ${CMAKE_CURRENT_SOURCE_DIR}/PreviewExtension.entitlements
-        ${PREVIEW_EXT_DIR}
-    DEPENDS compile_preview_extension
-    COMMENT "Code signing preview extension"
-)
-
-# Embed extensions in main FreeCAD.app
+# Embed unsigned extensions in main FreeCAD.app
 add_custom_target(embed_extensions_in_freecad ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${THUMBNAIL_EXT_DIR}
@@ -231,45 +210,33 @@ add_custom_target(embed_extensions_in_freecad ALL
         ${PREVIEW_EXT_DIR}
         ${EXTENSIONS_DIR}/FreeCADPreviewExtension.appex
     DEPENDS
-        sign_thumbnail_extension
-        sign_preview_extension
-    COMMENT "Embedding signed extensions in main FreeCAD.app"
-)
-
-# Re-sign embedded extensions to ensure signatures are preserved
-add_custom_target(resign_embedded_extensions ALL
-    COMMAND ${CODESIGN_EXECUTABLE}
-        --force
-        --sign "${SIGNING_IDENTITY}"
-        --entitlements ${CMAKE_CURRENT_SOURCE_DIR}/ThumbnailExtension.entitlements
-        ${EXTENSIONS_DIR}/FreeCADThumbnailExtension.appex
-    COMMAND ${CODESIGN_EXECUTABLE}
-        --force
-        --sign "${SIGNING_IDENTITY}"
-        --entitlements ${CMAKE_CURRENT_SOURCE_DIR}/PreviewExtension.entitlements
-        ${EXTENSIONS_DIR}/FreeCADPreviewExtension.appex
-    DEPENDS embed_extensions_in_freecad
-    COMMENT "Re-signing embedded extensions in FreeCAD.app"
+        compile_thumbnail_extension
+        compile_preview_extension
+    COMMENT "Embedding unsigned extensions in main FreeCAD.app"
 )
 
 # Main target that builds everything
 add_custom_target(FreeCADQuickLook ALL
-    DEPENDS resign_embedded_extensions
+    DEPENDS embed_extensions_in_freecad
     COMMENT "FreeCAD QuickLook extensions integrated into main app"
 )
 
 # Install targets for QuickLook extensions
-install(DIRECTORY ${THUMBNAIL_EXT_DIR}
-    DESTINATION "${CMAKE_INSTALL_PREFIX}/Contents/PlugIns"
+# Extensions are installed as part of the main app bundle, so we install from the signed app
+install(DIRECTORY ${EXTENSIONS_DIR}/FreeCADThumbnailExtension.appex
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/PlugIns"
     COMPONENT QuickLook
     USE_SOURCE_PERMISSIONS
 )
 
-install(DIRECTORY ${PREVIEW_EXT_DIR}
-    DESTINATION "${CMAKE_INSTALL_PREFIX}/Contents/PlugIns"
+install(DIRECTORY ${EXTENSIONS_DIR}/FreeCADPreviewExtension.appex
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/PlugIns"
     COMPONENT QuickLook
     USE_SOURCE_PERMISSIONS
 )
+
+# Post-install signing handled by main MacAppBundle/CMakeLists.txt using AppSigning component
+# This ensures signing runs after bundle fixup and all file installations
 
 # Status messages
 message(STATUS "FreeCAD QuickLook Production Integration Configuration:")

@@ -5,6 +5,16 @@ set(Import_LIBS
     ${OCC_OCAF_DEBUG_LIBRARIES}
 )
 
+# Check for TBB availability
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+    pkg_check_modules(TBB QUIET tbb)
+    if(TBB_FOUND)
+        list(APPEND Import_LIBS ${TBB_LIBRARIES})
+        message(STATUS "Import module: TBB support enabled")
+    endif()
+endif()
+
 SET(Import_SRCS
     AppImport.cpp
     AppImportPy.cpp
@@ -88,6 +98,13 @@ target_include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 target_link_libraries(Import ${Import_LIBS})
+
+# Add TBB target properties if available
+if(TBB_FOUND)
+    target_include_directories(Import PRIVATE ${TBB_INCLUDE_DIRS})
+    target_compile_options(Import PRIVATE ${TBB_CFLAGS_OTHER})
+    target_link_directories(Import PRIVATE ${TBB_LIBRARY_DIRS})
+endif()
 
 if (MSVC)
     target_compile_options(Import PRIVATE /wd4251 /wd4275)
