@@ -1,20 +1,8 @@
 cmake_minimum_required(VERSION 3.22)
 project(FreeCADQuickLookSwift)
 
-# Check generator and set approach
-if(CMAKE_GENERATOR STREQUAL "Xcode")
-    message(STATUS "Using Xcode generator - falling back to legacy Swift approach")
-    set(USE_UNIX_MAKEFILES_APPROACH OFF)
-elseif(CMAKE_GENERATOR STREQUAL "Unix Makefiles")
-    message(STATUS "Using Unix Makefiles generator - using direct swiftc approach")
-    set(USE_UNIX_MAKEFILES_APPROACH ON)
-else()
-    message(WARNING "Unsupported generator: ${CMAKE_GENERATOR}. QuickLook extensions may not build correctly.")
-    set(USE_UNIX_MAKEFILES_APPROACH OFF)
-endif()
-
-# Only proceed with Unix Makefiles approach if using that generator
-if(USE_UNIX_MAKEFILES_APPROACH)
+# QuickLook extensions using direct swiftc compilation (Unix Makefiles only)
+if(CMAKE_GENERATOR STREQUAL "Unix Makefiles")
 
 # Configuration options
 option(FREECAD_QUICKLOOK_USE_PRODUCTION_SIGNING "Use FreeCAD's production certificate for QuickLook extensions" OFF)
@@ -239,8 +227,7 @@ install(DIRECTORY ${EXTENSIONS_DIR}/FreeCADPreviewExtension.appex
 # This ensures signing runs after bundle fixup and all file installations
 
 # Status messages
-message(STATUS "FreeCAD QuickLook Production Integration Configuration:")
-message(STATUS "  Generator: ${CMAKE_GENERATOR}")
+message(STATUS "FreeCAD QuickLook Configuration:")
 message(STATUS "  Swift Compiler: ${SWIFTC_EXECUTABLE}")
 message(STATUS "  Code Sign Tool: ${CODESIGN_EXECUTABLE}")
 message(STATUS "  macOS SDK: ${MACOS_SDK_PATH}")
@@ -276,10 +263,9 @@ add_custom_target(test_registration
 )
 
 else()
-    # For Xcode generator, create placeholder targets
-    message(STATUS "QuickLook extensions will use legacy Xcode-based build (if available)")
+    message(STATUS "QuickLook extensions only supported with Unix Makefiles generator")
     add_custom_target(FreeCADQuickLook
-        COMMAND ${CMAKE_COMMAND} -E echo "QuickLook extensions require Unix Makefiles generator for this implementation"
+        COMMAND ${CMAKE_COMMAND} -E echo "QuickLook extensions require Unix Makefiles generator"
         COMMENT "QuickLook placeholder target"
     )
 endif()
