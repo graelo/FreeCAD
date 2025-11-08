@@ -150,11 +150,19 @@ endif()
 
 if(FREECAD_QT_MAJOR_VERSION STREQUAL "6")
     set(QT_PLUGINS_DIR "${Qt6Core_DIR}/../../../plugins")
+    # Fallback for Homebrew Qt6 layout
+    if(NOT EXISTS "${QT_PLUGINS_DIR}")
+        set(QT_PLUGINS_DIR "/opt/homebrew/share/qt/plugins")
+    endif()
     set(QT_ASSISTANT_PATH "${Qt6Core_DIR}/../../../libexec/Assistant.app/Contents/MacOS/Assistant")
+    set(QT_PLUGIN_SUBDIRS "platforms;imageformats;styles;iconengines")
 else()
     set(QT_PLUGINS_DIR "${Qt5Core_DIR}/../../../plugins")
     set(QT_ASSISTANT_PATH "${Qt5Core_DIR}/../../../libexec/Assistant.app/Contents/MacOS/Assistant")
+    set(QT_PLUGIN_SUBDIRS "platforms;imageformats;styles;iconengines")
 endif()
+
+
 execute_process(COMMAND "xcode-select" "--print-path"
   OUTPUT_VARIABLE XCODE_PATH
   ERROR_QUIET
@@ -170,20 +178,27 @@ else()
     message(WARNING "Qt Assistant not found at ${QT_ASSISTANT_PATH}, skipping installation")
 endif()
 
-# Ensure the actual plugin files are installed instead of symlinks.
-file(GLOB _subdirs RELATIVE "${QT_PLUGINS_DIR}" "${QT_PLUGINS_DIR}/*")
-
-foreach(_subdir ${_subdirs})
+# Install specific Qt plugin subdirectories that FreeCAD needs
+foreach(_subdir ${QT_PLUGIN_SUBDIRS})
     if(IS_DIRECTORY "${QT_PLUGINS_DIR}/${_subdir}")
         set(_resolved_files "")
-        file(GLOB _plugin_files RELATIVE "${QT_PLUGINS_DIR}/${_subdir}" "${QT_PLUGINS_DIR}/${_subdir}/*")
+        file(GLOB _plugin_files "${QT_PLUGINS_DIR}/${_subdir}/*.dylib")
 
         foreach(_plugin_file ${_plugin_files})
-            get_filename_component(_resolved_file "${QT_PLUGINS_DIR}/${_subdir}/${_plugin_file}" REALPATH)
-            list(APPEND _resolved_files ${_resolved_file})
+            if(EXISTS "${_plugin_file}" AND NOT IS_DIRECTORY "${_plugin_file}")
+                get_filename_component(_resolved_file "${_plugin_file}" REALPATH)
+                list(APPEND _resolved_files ${_resolved_file})
+            endif()
         endforeach()
 
-        install(FILES ${_resolved_files} DESTINATION "${CMAKE_INSTALL_LIBDIR}/qtplugins/${_subdir}")
+        if(_resolved_files)
+            install(FILES ${_resolved_files} DESTINATION "${CMAKE_INSTALL_LIBDIR}/qtplugins/${_subdir}")
+
+            # Also install platform plugins to standard Qt location for runtime loading
+            if("${_subdir}" STREQUAL "platforms")
+                install(FILES ${_resolved_files} DESTINATION "${CMAKE_INSTALL_PREFIX}/PlugIns/platforms")
+            endif()
+        endif()
     endif()
 endforeach()
 
@@ -203,9 +218,65 @@ install(CODE
     ${HOMEBREW_PREFIX}${MACPORTS_PREFIX}/lib
     ${HOMEBREW_PREFIX}/opt
     ${HOMEBREW_PREFIX}/opt/*/lib
-    ${Qt5Core_DIR}/../../..
+    ${Qt${FREECAD_QT_MAJOR_VERSION}Core_DIR}/../../..
     ${XCTEST_PATH}
     )"
   )
+
+# Fix Qt platform plugin dependencies after bundle relocation
+# This addresses the SIGKILL issue where Qt plugins reference framework paths
+# but the Qt libraries are installed as flat dylibs
+install(CODE "
+  message(STATUS \"Fixing Qt platform plugin dependencies...\")
+
+  # Find platform plugins
+  file(GLOB_RECURSE PLATFORM_PLUGINS \"${CMAKE_INSTALL_PREFIX}/PlugIns/platforms/*.dylib\")
+
+  foreach(PLUGIN \${PLATFORM_PLUGINS})
+    message(STATUS \"Processing plugin: \${PLUGIN}\")
+
+    # Get current dependencies
+    execute_process(
+      COMMAND otool -L \"\${PLUGIN}\"
+      OUTPUT_VARIABLE PLUGIN_DEPS
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+
+    # Fix framework-style Qt dependencies to use flat dylib names
+    if(FREECAD_QT_MAJOR_VERSION STREQUAL \"6\")
+      set(QT_FRAMEWORKS \"QtCore;QtGui;QtWidgets;QtOpenGL;QtPrintSupport;QtSvg;QtNetwork\")
+    else()
+      set(QT_FRAMEWORKS \"QtCore;QtGui;QtWidgets;QtOpenGL;QtPrintSupport;QtSvg;QtNetwork\")
+    endif()
+
+    foreach(FRAMEWORK \${QT_FRAMEWORKS})
+      # Change @rpath/QtXXX.framework/Versions/A/QtXXX to @rpath/QtXXX
+      execute_process(
+        COMMAND install_name_tool -change
+          \"@rpath/\${FRAMEWORK}.framework/Versions/A/\${FRAMEWORK}\"
+          \"@rpath/\${FRAMEWORK}\"
+          \"\${PLUGIN}\"
+        OUTPUT_QUIET
+        ERROR_QUIET
+      )
+
+      # Also handle versioned framework paths for Qt5
+      if(FREECAD_QT_MAJOR_VERSION STREQUAL \"5\")
+        execute_process(
+          COMMAND install_name_tool -change
+            \"@rpath/\${FRAMEWORK}.framework/Versions/5/\${FRAMEWORK}\"
+            \"@rpath/\${FRAMEWORK}\"
+            \"\${PLUGIN}\"
+          OUTPUT_QUIET
+          ERROR_QUIET
+        )
+      endif()
+    endforeach()
+
+    message(STATUS \"Fixed dependencies for: \${PLUGIN}\")
+  endforeach()
+
+  message(STATUS \"Qt platform plugin dependency fixing complete.\")
+")
 
 endif(FREECAD_CREATE_MAC_APP)

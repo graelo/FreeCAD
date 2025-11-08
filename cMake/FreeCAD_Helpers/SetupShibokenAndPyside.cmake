@@ -112,7 +112,7 @@ macro(SetupShibokenAndPyside)
         DIRECTORY
             ${CMAKE_BINARY_DIR}/Ext/PySide
         DESTINATION
-            MacOS
+            lib/python${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}/site-packages
         )
     else()
         install(

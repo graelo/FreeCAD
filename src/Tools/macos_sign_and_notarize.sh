@@ -29,18 +29,44 @@ function run_codesign {
     codesign --options runtime -f -s ${FREECAD_SIGNING_KEY_ID} --timestamp --entitlements entitlements.plist $1
 }
 
+function run_codesign_simple {
+    echo "Signing (simple) $1"
+    codesign -f -s ${FREECAD_SIGNING_KEY_ID} --timestamp $1
+}
+
 IFS=$'\n'
 dylibs=($(find ${CONTAINING_FOLDER}/FreeCAD.app -name "*.dylib"))
 shared_objects=($(find ${CONTAINING_FOLDER}/FreeCAD.app -name "*.so"))
 executables=($(file `find . -type f -perm +111 -print` | grep "Mach-O 64-bit executable" | sed 's/:.*//g'))
 IFS=$' \t\n' # The default
 
+# Sign Qt libraries first (they may have framework-style names that need special handling)
+echo "Signing Qt libraries..."
+qt_libs=($(find ${CONTAINING_FOLDER}/FreeCAD.app/Contents/lib -name "Qt*" -type f))
+for qt_lib in ${qt_libs[@]}; do
+    if file "$qt_lib" | grep -q "Mach-O"; then
+        run_codesign_simple "${qt_lib}"
+    fi
+done
+
+# Sign Qt platform plugins
+echo "Signing Qt platform plugins..."
+qt_plugins=($(find ${CONTAINING_FOLDER}/FreeCAD.app/Contents/PlugIns -name "*.dylib" -type f 2>/dev/null))
+for qt_plugin in ${qt_plugins[@]}; do
+    if file "$qt_plugin" | grep -q "Mach-O"; then
+        run_codesign_simple "${qt_plugin}"
+    fi
+done
+
 signed_files=("${dylibs[@]}" "${shared_objects[@]}" "${executables[@]}")
 
 # This list of files is generated from:
 # file `find . -type f -perm +111 -print` | grep "Mach-O 64-bit executable" | sed 's/:.*//g'
 for exe in ${signed_files}; do
-    run_codesign "${exe}"
+    # Skip Qt libraries and platform plugins as they were already signed above
+    if [[ "$exe" != */Contents/lib/Qt* ]] && [[ "$exe" != */Contents/PlugIns/*.dylib ]]; then
+        run_codesign "${exe}"
+    fi
 done
 
 # Additional files that must be signed that aren't caught by the above searches:
