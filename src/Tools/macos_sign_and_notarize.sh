@@ -34,6 +34,13 @@ function run_codesign_simple {
     codesign -f -s ${FREECAD_SIGNING_KEY_ID} --timestamp $1
 }
 
+function run_codesign_extension {
+    local target="$1"
+    local entitlements_file="$2"
+    echo "Signing extension $target with entitlements $entitlements_file"
+    codesign --options runtime -f -s ${FREECAD_SIGNING_KEY_ID} --timestamp --entitlements "$entitlements_file" "$target"
+}
+
 IFS=$'\n'
 dylibs=($(find ${CONTAINING_FOLDER}/FreeCAD.app -name "*.dylib"))
 shared_objects=($(find ${CONTAINING_FOLDER}/FreeCAD.app -name "*.so"))
@@ -79,6 +86,11 @@ fi
 
 # Sign new Swift QuickLook extensions (macOS 15.0+)
 if [ -d "${CONTAINING_FOLDER}/FreeCAD.app/Contents/PlugIns" ]; then
+    # Find the entitlements files
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    PREVIEW_ENTITLEMENTS="$SCRIPT_DIR/../MacAppBundle/QuickLook/modern/PreviewExtension.entitlements"
+    THUMBNAIL_ENTITLEMENTS="$SCRIPT_DIR/../MacAppBundle/QuickLook/modern/ThumbnailExtension.entitlements"
+
     # Sign individual executables within .appex bundles first
     if [ -f "${CONTAINING_FOLDER}/FreeCAD.app/Contents/PlugIns/FreeCADThumbnailExtension.appex/Contents/MacOS/FreeCADThumbnailExtension" ]; then
         run_codesign "${CONTAINING_FOLDER}/FreeCAD.app/Contents/PlugIns/FreeCADThumbnailExtension.appex/Contents/MacOS/FreeCADThumbnailExtension"
@@ -87,12 +99,12 @@ if [ -d "${CONTAINING_FOLDER}/FreeCAD.app/Contents/PlugIns" ]; then
         run_codesign "${CONTAINING_FOLDER}/FreeCAD.app/Contents/PlugIns/FreeCADPreviewExtension.appex/Contents/MacOS/FreeCADPreviewExtension"
     fi
 
-    # Then sign the .appex bundles themselves
-    if [ -d "${CONTAINING_FOLDER}/FreeCAD.app/Contents/PlugIns/FreeCADThumbnailExtension.appex" ]; then
-        run_codesign "${CONTAINING_FOLDER}/FreeCAD.app/Contents/PlugIns/FreeCADThumbnailExtension.appex"
+    # Then sign the .appex bundles themselves with extension-specific entitlements
+    if [ -d "${CONTAINING_FOLDER}/FreeCAD.app/Contents/PlugIns/FreeCADThumbnailExtension.appex" ] && [ -f "$THUMBNAIL_ENTITLEMENTS" ]; then
+        run_codesign_extension "${CONTAINING_FOLDER}/FreeCAD.app/Contents/PlugIns/FreeCADThumbnailExtension.appex" "$THUMBNAIL_ENTITLEMENTS"
     fi
-    if [ -d "${CONTAINING_FOLDER}/FreeCAD.app/Contents/PlugIns/FreeCADPreviewExtension.appex" ]; then
-        run_codesign "${CONTAINING_FOLDER}/FreeCAD.app/Contents/PlugIns/FreeCADPreviewExtension.appex"
+    if [ -d "${CONTAINING_FOLDER}/FreeCAD.app/Contents/PlugIns/FreeCADPreviewExtension.appex" ] && [ -f "$PREVIEW_ENTITLEMENTS" ]; then
+        run_codesign_extension "${CONTAINING_FOLDER}/FreeCAD.app/Contents/PlugIns/FreeCADPreviewExtension.appex" "$PREVIEW_ENTITLEMENTS"
     fi
 fi
 
